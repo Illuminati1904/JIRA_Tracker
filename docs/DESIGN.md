@@ -1,7 +1,7 @@
 # Scope Change Sentinel accelerator: technical design
 
-Status: v0.1, implemented in `src/scope_sentinel`. 54 automated tests pass. Live Claude API calls are **not yet
-verified** (see [§10](#10-what-is-verified-and-what-is-not)).
+Status: v0.1, implemented in `src/scope_sentinel`. 55 automated tests pass. Claude calls verified live on synthetic data;
+memory-store writes and the SDK package are not yet (see [§10](#10-what-is-verified-and-what-is-not)).
 
 ## 1. What this is, and what changed versus the skill
 
@@ -244,7 +244,7 @@ run reports `spend`: the CLI prints actual spend per run and stores every call i
 
 ## 10. What is verified, and what is not
 
-**Verified (automated, 54 tests, plus headless-browser checks):**
+**Verified (automated, 55 tests, plus headless-browser checks):**
 
 * CSV and REST-JSON adapters (repeated headers, comment formats, ADF, changelog, truncation, JSONL, missing columns).
 * Event semantics: idempotency, ordering guard, time travel, exact sign-off freeze, CSV → changelog upgrade,
@@ -259,20 +259,35 @@ run reports `spend`: the CLI prints actual spend per run and stores every call i
 * The report: renders with no JS errors in a US time zone; your real 135-story sample data also renders in the extended
   template.
 
+**Verified live against the real API** (synthetic data only, Opus 5.5, about $0.38 in total). The SDK package could not be
+installed in the build sandbox, so these runs used a throw-away REST stand-in with the SDK's call signatures. They prove
+the **API contract**, not the SDK package itself:
+
+* `output_config` with both `effort` and a JSON-schema `format` is accepted; structured output parsed for every story.
+* `fallbacks="default"` with the `server-side-fallback-2026-07-01` beta is accepted.
+* The judge, executive summary (all figures traced to the facts) and the **memory-tool loop** work end to end: Claude
+  viewed the memory directory and wrote four coherent project notes, only under `/project/`.
+* The API key was valid, `claude-opus-5-5` was available, and the **memory-store beta is enabled** for the organisation
+  (`GET /v1/memory_stores` returned 200).
+* Spend by role for that run: judge 7 calls ≈ $0.18, executive summary ≈ $0.07, project memory 4 turns ≈ $0.14.
+
 **Not verified:**
 
-* **Live Anthropic API calls.** The sandbox had no API key and could not install the SDK. The code follows the
-  documented shapes, but these combinations need one real run: `output_config` with both `effort` and a JSON-schema
-  `format`; `client.beta.messages.create(..., fallbacks="default")`; re-sending `response.content` blocks in the
-  memory-tool loop; `client.beta.memory_stores.*`. If the fallback beta is rejected, set `use_fallbacks = false` in
-  `sentinel.toml`.
+* **Memory-store writes.** The API refused `create` from the build sandbox: *"A request from an Anthropic-hosted sandbox
+  with restricted network access cannot create, change or delete memory stores or memories. Reads still work."* So
+  `ManagedStoreBackend` (create, update with `content_sha256` precondition, retrieve, list pagination) has been tested
+  only against a fake. Run `sentinel memory init` from your own machine, then one report with
+  `--memory-backend managed`.
+* **The `anthropic` SDK package** (exact method names under `client.beta.memory_stores`, content-block re-sending). The
+  REST stand-in mirrors the documented signatures, but a first run with the real SDK is still the proof.
 * **Account constraints.** Structured outputs are unavailable in an organisation using customer-managed encryption
   keys; the judge would then fail per story and fall back to deterministic narratives. A validate-in-code mode is on
   the roadmap (§13) if this applies to you.
 * **Your real exports.** The skill zip contained no CSV, so the CSV adapter was built from the skill's own parser and
   the sample report. The REST-JSON adapter follows Jira Cloud's documented schema and was tested only on a synthetic
   rendering. Run `sentinel doctor <file>` on a real dump first.
-* **Quality of judgements.** Prompt quality has not been measured against your PM-reviewed verdicts (see roadmap).
+* **Quality of judgements** on your data. On synthetic data the live verdicts matched the deterministic facts and the
+  prose was specific and cautious, but they have not been measured against your PM-reviewed verdicts (see roadmap).
 
 ## 11. Decisions (ADR summary)
 
@@ -344,7 +359,7 @@ These change what I build next, in rough order of impact.
 1. **Eval harness from your PM-reviewed report.** Your sample report holds ~65 stories with human-reviewed severity,
    change type and headline. Kept locally, it is a ready-made gold set to score the judge prompt and tune effort
    (`/claude-api build-eval`).
-2. **First live run** on synthetic data with a real key (`sentinel demo --llm`), then on one real dump.
+2. **First run with the real SDK and a managed store** from an unrestricted machine (`sentinel memory init`), then on one real dump.
 3. **`sentinel ask`**: read-only agent over the store plus ledger queries.
 4. **Jira fetch helper** (`/search/jql` pagination, per-issue changelog backfill beyond 100 histories).
 5. **Batches API** for large cumulative backfills; model tiering if cost matters.

@@ -101,9 +101,10 @@ client Jira data to a personal GitHub repository.**
 ## Tests
 
 ```bash
-PYTHONPATH=src python -m unittest discover -s tests          # 54 tests, no network, no API key
+PYTHONPATH=src python -m unittest discover -s tests          # 55 tests, no network, no API key
 node scripts/ui_check.js <report.html> <out-prefix>          # headless Chromium: no JS errors in a US time zone
 ```
 
-The Claude layer is tested against a scripted fake SDK. The first run with a real API key has not happened yet: see
-"What is verified" in the design doc.
+The Claude layer is tested against a scripted fake SDK and has also been run live on synthetic data (judge, summary, memory
+tool). Creating a Managed Agents memory store must be done from your own machine: the API refuses memory-store writes from
+Anthropic-hosted sandboxes with restricted network access. See "What is verified" in the design doc.

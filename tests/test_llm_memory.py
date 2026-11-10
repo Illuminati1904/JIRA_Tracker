@@ -361,6 +361,22 @@ class Pipeline(unittest.TestCase):
         self.assertIn("DEMO-1 was reviewed; scope is stable.", after)  # understanding restored from the stored judgment
         self.assertIn("Acceptance criteria: AC2 edited", after)        # facts replayed from the event log
 
+    def test_memory_init_failure_is_actionable(self):
+        from unittest import mock
+        from scope_sentinel import cli
+
+        class Denied(Exception):
+            status_code = 403
+
+        class Stores:
+            def create(self, **kw):
+                raise Denied("A request from an Anthropic-hosted sandbox with restricted network access cannot create memory stores")
+        sdk = NS(beta=NS(memory_stores=Stores()))
+        with mock.patch.object(cli, "make_sdk", return_value=sdk):
+            with self.assertRaises(RuntimeError) as cm:
+                cli.cmd_memory(NS(op="init", home=str(self.cfg.home), memory_backend=None, tz=None, budget_usd=None, model=None))
+        self.assertIn("your own machine", str(cm.exception))
+
     def test_rolling_window_requires_baseline_on_first_run(self):
         w = open_workspace(self.cfg, use_llm=False)
         self.addCleanup(w.close)

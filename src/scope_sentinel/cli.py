@@ -93,7 +93,19 @@ def cmd_memory(a):
         from .memory.backends import ManagedStoreBackend
         sdk = make_sdk()
         mem = open_workspace(Config.load(a.home, memory_backend="local"), use_llm=False).mem
-        sid = ManagedStoreBackend.create_store(sdk)
+        try:
+            sid = ManagedStoreBackend.create_store(sdk)
+        except Exception as e:   # SDK/API errors: turn into an actionable message instead of a stack trace
+            code = getattr(e, "status_code", None)
+            msg = str(e)
+            if code == 403 and "sandbox" in msg.lower():
+                hint = ("Memory stores cannot be created or changed from an Anthropic-hosted sandbox with restricted network "
+                        "access. Run this command from your own machine, or from an environment with unrestricted network access.")
+            elif code in (401, 403, 404):
+                hint = "Check the API key, and that your organisation has the Managed Agents memory-store beta enabled."
+            else:
+                hint = "See the API error above."
+            raise RuntimeError(f"could not create the memory store (HTTP {code}): {msg[:300]}\n  {hint}") from e
         mem.kv_set("memory_store_id", sid)
         print(f"created memory store {sid}. Set `memory_backend = \"managed\"` in {cfg.home / 'sentinel.toml'} "
               f"(or pass --memory-backend managed) to use it.")
