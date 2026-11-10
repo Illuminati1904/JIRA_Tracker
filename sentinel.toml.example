@@ -1,0 +1,29 @@
+# Copy to <workspace>/sentinel.toml (workspace = ./sentinel_home by default, or $SENTINEL_HOME / --home).
+
+tz = "UTC"                      # timezone your CSV timestamps are in; REST JSON offsets are converted to it
+
+# --- Claude -----------------------------------------------------------------
+model = "claude-opus-5-5"
+judge_effort = "medium"         # per-story judgement (Opus 5.5 default is medium)
+exec_effort = "high"            # executive summary
+use_fallbacks = true            # server-side refusal fallback (beta). Set false if the API rejects it
+max_workers = 4
+# budget_usd = 10.0             # hard stop for LLM spend per run; remaining stories fall back to deterministic text
+
+# --- Memory -----------------------------------------------------------------
+memory_backend = "local"        # local | managed  (managed = Claude Managed Agents memory store + local mirror)
+# memory_store_id = "memstore_..."   # or run `sentinel memory init`, which saves it in the ledger
+
+# --- Governance -------------------------------------------------------------
+redact_terms = []               # e.g. ["Client Name", "Product Codename"]: masked as [client] before any API call
+# jira_base = "https://yourtenant.atlassian.net"   # for story links in the report (auto-detected when possible)
+
+# --- Custom field names that differ in your Jira (only needed for REST JSON) -----------------------
+# [field_aliases]
+# ac = ["customfield_12345"]
+# capability = ["Capability"]
+
+# --- Workflow (defaults match the skill's workflow; ToDo is the sign-off gate) --------------------
+# [workflow]
+# order = ["New", "Story Writing", "...", "ToDo", "...", "Done"]
+# signoff = "ToDo"

@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scope Change Report</title>
+<style>
+:root{
+  --paper:#F5F5F7; --surface:#FFFFFF; --ink:#1D1D1F; --mute:#6E6E73; --faint:#A1A1A6; --line:#D2D2D7;
+  --major:#D1242F; --moderate:#E08A00; --minor:#2F6FDB; --none:#C9C9CE; --new:#1D1D1F; --good:#1F8F4E;
+  --add-bg:#E6F4EA; --add-ink:#14663A; --del-bg:#FCE8E8; --del-ink:#A3151F;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#000000; --surface:#161618; --ink:#F5F5F7; --mute:#A1A1A6; --faint:#6E6E73; --line:#2C2C2E;
+    --major:#FF5A5F; --moderate:#FFB02E; --minor:#5C9DFF; --none:#3A3A3C; --new:#F5F5F7; --good:#46C97B;
+    --add-bg:#10301D; --add-ink:#7BE0A3; --del-bg:#3A1416; --del-ink:#FF9AA0; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#000000; --surface:#161618; --ink:#F5F5F7; --mute:#A1A1A6; --faint:#6E6E73; --line:#2C2C2E;
+  --major:#FF5A5F; --moderate:#FFB02E; --minor:#5C9DFF; --none:#3A3A3C; --new:#F5F5F7; --good:#46C97B;
+  --add-bg:#10301D; --add-ink:#7BE0A3; --del-bg:#3A1416; --del-ink:#FF9AA0; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-snap-type:y proximity;scroll-behavior:smooth;scroll-padding-top:56px}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font);font-size:17px;line-height:1.5;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum"}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+:focus-visible{outline:2px solid var(--minor);outline-offset:2px;border-radius:4px}
+.bar{position:fixed;inset:0 0 auto 0;height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;
+  background:color-mix(in srgb,var(--paper) 82%,transparent);backdrop-filter:saturate(180%) blur(18px);z-index:20;border-bottom:1px solid var(--line)}
+.bar b{font-weight:600;letter-spacing:-.01em}
+.bar .wnd{color:var(--mute);font-size:14px;margin-left:14px}
+.bar .actions{display:flex;gap:8px}
+.pill{border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:14px;color:var(--ink)}
+.pill:hover{background:var(--surface)}
+.nav{position:fixed;right:14px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:10px;z-index:15}
+.nav button{width:9px;height:9px;border-radius:50%;background:var(--line);position:relative}
+.nav button.on{background:var(--ink)}
+.nav button span{position:absolute;right:18px;top:50%;transform:translateY(-50%);white-space:nowrap;font-size:13px;color:var(--mute);opacity:0;pointer-events:none;transition:opacity .15s}
+.nav button:hover span,.nav button:focus-visible span{opacity:1}
+.slide{min-height:100vh;padding:96px 7vw 72px;scroll-snap-align:start;display:flex;flex-direction:column;justify-content:center}
+.slide>*{max-width:1280px;width:100%;margin-inline:auto}
+h1{font-size:clamp(34px,4.3vw,62px);line-height:1.05;letter-spacing:-.035em;font-weight:650;margin:0;max-width:24ch}
+h2{font-size:clamp(30px,3.6vw,48px);line-height:1.08;letter-spacing:-.03em;font-weight:650;margin:0 0 10px}
+.lede{color:var(--mute);font-size:clamp(17px,1.45vw,20px);max-width:70ch;margin:12px 0 0}
+.sub{color:var(--mute);font-size:15px}
+.tag{display:inline-flex;align-items:center;gap:6px;font-size:13px;border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--mute);white-space:nowrap}
+.tag.sev-Major{color:var(--major);border-color:currentColor}.tag.sev-Moderate{color:var(--moderate);border-color:currentColor}
+.tag.sev-Minor{color:var(--minor);border-color:currentColor}.tag.gate{color:var(--major);border-color:currentColor}
+.tag.warn{color:var(--moderate);border-color:currentColor}
+/* ---------- story field ---------- */
+.field-wrap{margin-top:26px}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+.chip{border:1px solid var(--line);border-radius:999px;padding:5px 14px;font-size:14px;color:var(--mute);display:inline-flex;gap:8px;align-items:center}
+.chip:hover{color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.field{display:flex;gap:0;align-items:flex-start;overflow-x:auto;padding:30px 0 6px}
+.col{padding:0 16px;flex:0 0 auto;position:relative}
+.col+.col{border-left:1px solid var(--line)}
+.col.gate{border-left:1.5px dashed var(--major)}
+.col.gate::before{content:"Sign-off gate";position:absolute;left:-1px;top:-26px;font-size:12px;color:var(--major);white-space:nowrap;padding-left:6px}
+.col h3{margin:0 0 4px;font-size:13px;font-weight:600;color:var(--ink);max-width:104px;line-height:1.25;min-height:2.5em;letter-spacing:-.005em}
+.col .n{font-size:13px;color:var(--mute);margin-bottom:12px}
+.dots{display:flex;flex-direction:column;flex-wrap:wrap;gap:6px;max-height:226px;align-content:flex-start}
+.dot{width:16px;height:16px;border-radius:50%;background:var(--none);display:block;transition:transform .12s,opacity .2s;position:relative}
+.dot:hover,.dot:focus-visible{transform:scale(1.5);z-index:3}
+.dot.Major{background:var(--major)}.dot.Moderate{background:var(--moderate)}.dot.Minor{background:var(--minor)}
+.dot.None{background:transparent;border:1.5px solid var(--none)}
+.dot.new{border-radius:3px;transform:rotate(45deg) scale(.85)}
+.dot.new.None{background:var(--new);border:0}
+.dot.new:hover{transform:rotate(45deg) scale(1.4)}
+.dot.ring{box-shadow:0 0 0 2px var(--paper),0 0 0 3.5px var(--major)}
+.dot.dim{opacity:.12}
+.dot.unrev::after{content:"";position:absolute;inset:-4px;border:1px dashed var(--faint);border-radius:50%}
+.legend{display:flex;flex-wrap:wrap;gap:22px;margin-top:22px;font-size:13px;color:var(--mute)}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.legend .dot{display:inline-block;transform:none;width:12px;height:12px}
+.legend .dot.new{transform:rotate(45deg) scale(.85)}
+.tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--paper);padding:8px 12px;border-radius:10px;font-size:13px;max-width:320px;z-index:40;opacity:0;transition:opacity .1s;line-height:1.35}
+.tip b{display:block;font-weight:600}
+.facts{display:flex;flex-wrap:wrap;gap:10px 40px;margin-top:22px}
+.fact{min-width:120px}.fact b{display:block;font-size:28px;letter-spacing:-.03em;font-weight:650;line-height:1.1}.fact span{font-size:14px;color:var(--mute)}
+/* ---------- headlines ---------- */
+.hl{border-top:1px solid var(--line);padding:26px 0;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:36px}
+.hl:last-child{border-bottom:1px solid var(--line)}
+.hl h3{margin:0;font-size:clamp(22px,2.3vw,32px);line-height:1.15;letter-spacing:-.025em;font-weight:620}
+.hl p{margin:0 0 12px;color:var(--mute)}
+.keys{display:flex;flex-wrap:wrap;gap:6px}
+.key{font-size:13px;border:1px solid var(--line);border-radius:6px;padding:1px 8px;color:var(--ink);background:var(--surface)}
+.key:hover{border-color:var(--ink)}
+/* ---------- gate groups ---------- */
+.gate-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:44px 56px;margin-top:34px}
+.grp h3{margin:0 0 4px;font-size:20px;letter-spacing:-.02em;font-weight:620;display:flex;justify-content:space-between;align-items:baseline}
+.grp h3 em{font-style:normal;color:var(--mute);font-weight:500;font-size:15px}
+.grp .why{color:var(--mute);font-size:14px;margin:0 0 10px}
+.row{display:grid;grid-template-columns:86px 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--line);text-align:left;width:100%;align-items:start}
+.row:hover{background:color-mix(in srgb,var(--surface) 70%,transparent)}
+.row .k{font-size:13px;color:var(--mute);padding-top:2px}.row .t{font-size:15px;line-height:1.35}
+.row .t small{display:block;color:var(--mute);font-size:13px;margin-top:2px}
+.meta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:6px;font-size:12px;color:var(--mute)}
+.stat{border:1px solid var(--line);border-radius:6px;padding:0 7px;color:var(--ink);font-size:12px;line-height:1.5}
+.lbls{display:inline-flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+.lbl{display:inline-flex;align-items:center;gap:6px;font-size:12px;line-height:1.4;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:1px 9px 1px 7px;white-space:nowrap}
+.lbl i{width:8px;height:8px;border-radius:50%;background:var(--c,var(--faint));flex:none}
+.lbl.epic{border:0;color:var(--mute);padding:0 2px;white-space:normal}
+.capsel{border:1px solid var(--line);border-radius:999px;padding:5px 12px;font:inherit;font-size:14px;background:var(--surface);color:var(--ink)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-top:14px}
+.seg button{padding:5px 16px;font-size:14px;color:var(--mute)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.leg{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:13px;color:var(--mute);margin:14px 0 0}
+.leg span{display:inline-flex;align-items:center;gap:7px}
+.leg i{width:11px;height:11px;border-radius:3px;display:inline-block}
+.tgrid{display:grid;gap:0 6px;align-items:end;margin-top:18px;font-size:13px}
+.tgrid .rl{color:var(--mute);font-size:12.5px;line-height:1.25;padding-right:10px;align-self:center}
+.tgrid .bar2{height:190px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;border-bottom:1px solid var(--line)}
+.tgrid .bar2 i{display:block;width:100%;max-width:36px}
+.tgrid .bar2 b{font-weight:560;font-size:12px;color:var(--ink);margin-bottom:3px}
+.tgrid .yl{height:190px;position:relative;border-bottom:1px solid var(--line);color:var(--mute);font-size:12.5px}
+.tgrid .yl span{position:absolute;right:10px;font-size:11px;color:var(--faint)}
+.tgrid .yl em{position:absolute;left:0;top:42%;font-style:normal;line-height:1.25;max-width:78px}
+.tgrid .dl{text-align:center;color:var(--mute);font-size:12px;padding:8px 0 6px;line-height:1.25}
+.tgrid .dl b{display:block;color:var(--ink);font-weight:560}
+.tgrid .cell{text-align:center;padding:7px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+.tgrid .cell.z{color:var(--faint)}
+.tgrid .cell.hot{font-weight:650;color:var(--ink)}
+.tgrid .rl.row2{padding:7px 10px 7px 0;border-top:1px solid var(--line);align-self:stretch;display:flex;align-items:center}
+table.mv{width:100%;border-collapse:collapse;font-size:15px;margin-top:10px}
+table.mv th{font-weight:550;color:var(--mute);font-size:13px;text-align:left;padding:8px 12px 8px 0;border-bottom:1px solid var(--line)}
+table.mv td{padding:11px 12px 11px 0;border-top:1px solid var(--line);vertical-align:top}
+table.mv tr.r{cursor:pointer}table.mv tr.r:hover td{background:color-mix(in srgb,var(--surface) 75%,transparent)}
+
+.empty{color:var(--good);font-size:15px;padding:10px 0;border-top:1px solid var(--line)}
+/* ---------- ledger ---------- */
+.tools{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:22px 0 14px}
+.search{flex:1;min-width:220px;max-width:420px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;padding:10px 14px;font:inherit;font-size:15px}
+.tablewrap{overflow-x:auto;border-top:1px solid var(--line)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{font-weight:550;color:var(--mute);font-size:13px;text-align:left;padding:10px 12px;cursor:pointer;white-space:nowrap;position:sticky;top:0;background:var(--paper)}
+td{padding:12px;border-top:1px solid var(--line);vertical-align:top}
+tr.r{cursor:pointer}tr.r:hover td{background:color-mix(in srgb,var(--surface) 75%,transparent)}
+td.s{min-width:300px}td.s b{font-weight:560;display:block}td.s span{color:var(--mute);font-size:13px}
+.sevdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px}
+/* ---------- bars ---------- */
+.bars{margin-top:30px;display:grid;gap:12px}
+.brow{display:grid;grid-template-columns:minmax(150px,260px) 1fr 150px;gap:14px;align-items:center;font-size:15px}
+.brow .sub{white-space:nowrap}
+.brow .lab{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.track{display:flex;height:14px;border-radius:7px;overflow:hidden;background:color-mix(in srgb,var(--line) 45%,transparent)}
+.track i{display:block;height:100%}
+.two{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:56px;margin-top:10px}
+.tempo{display:flex;align-items:flex-end;gap:8px;height:190px;margin-top:26px;border-bottom:1px solid var(--line)}
+.tempo div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:0;height:100%;position:relative}
+.tempo div i{width:100%;max-width:34px;display:block}
+.tempo div span{position:absolute;bottom:-24px;font-size:11px;color:var(--mute);white-space:nowrap}
+.tempo div b{position:absolute;font-weight:500;font-size:11px;color:var(--mute)}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 22px;font-size:15px;color:var(--mute);margin-top:26px}
+.note b{color:var(--ink)}
+/* ---------- drawer ---------- */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100%;width:min(560px,100%);background:var(--surface);z-index:60;transform:translateX(102%);transition:transform .25s cubic-bezier(.2,.8,.2,1);
+  overflow-y:auto;padding:28px 30px 60px;border-left:1px solid var(--line)}
+.drawer.on{transform:none}
+.drawer .x{position:absolute;top:18px;right:20px;font-size:26px;color:var(--mute);line-height:1}
+.drawer h2{font-size:25px;line-height:1.2;margin:10px 0 8px;letter-spacing:-.02em;padding-right:30px}
+.drawer .keyline{display:flex;gap:10px;align-items:center;color:var(--mute);font-size:14px;flex-wrap:wrap}
+.drawer a{color:var(--minor);text-decoration:none}
+.drawer h4{margin:26px 0 8px;font-size:13px;font-weight:600;color:var(--mute);letter-spacing:.01em}
+.chg{border-top:1px solid var(--line);padding:11px 0;display:grid;grid-template-columns:96px 1fr;gap:10px;font-size:15px}
+.chg dt{color:var(--mute);font-size:14px}.chg dd{margin:0}
+.diff p{margin:6px 0;padding:6px 10px;border-radius:8px;font-size:14px;line-height:1.4}
+.diff .a{background:var(--add-bg);color:var(--add-ink)}.diff .d{background:var(--del-bg);color:var(--del-ink);text-decoration:line-through;text-decoration-thickness:1px}
+.diff .m{border:1px solid var(--line)}
+.cm{border-top:1px solid var(--line);padding:12px 0;font-size:14px}
+.cm .h{display:flex;gap:8px;flex-wrap:wrap;color:var(--mute);font-size:13px;margin-bottom:4px;align-items:center}
+.cm .body{white-space:pre-wrap;color:var(--ink);max-height:7.4em;overflow:hidden;position:relative}
+.cm.open .body{max-height:none}
+.cm .more{color:var(--minor);font-size:13px;margin-top:4px}
+.line{position:relative;height:46px;margin:6px 0 4px}
+.line:before{content:"";position:absolute;left:0;right:0;top:20px;height:2px;background:var(--line)}
+.line i{position:absolute;top:14px;width:12px;height:12px;border-radius:50%;margin-left:-6px;background:var(--faint)}
+.line i.c{background:var(--moderate)}.line i.s{background:var(--major)}.line i.u{background:var(--ink)}
+.line span{position:absolute;top:30px;font-size:11px;color:var(--mute);white-space:nowrap}
+@media (max-width:900px){.hl,.gate-grid,.two{grid-template-columns:1fr}.slide{padding:84px 6vw 56px}.nav{display:none}.bar .wnd{display:none}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important;animation:none!important}}
+@keyframes rise{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
+body.boot .dot{animation:rise .5s both}
+@media print{.bar,.nav{display:none}.slide{min-height:auto;page-break-after:always}}
+</style>
+</head>
+<body class="boot">
+<header class="bar">
+  <div><b id="ttl">Scope Change Report</b><span class="wnd" id="win"></span></div>
+  <div class="actions"><button class="pill" id="theme">Theme</button><button class="pill" id="present">Present</button></div>
+</header>
+<nav class="nav" id="nav" aria-label="Sections"></nav>
+
+<section class="slide" id="s-hero" data-label="Overview">
+  <h1 id="verdict"></h1>
+  <p class="lede" id="subverdict"></p>
+  <div class="facts" id="facts"></div>
+  <div class="field-wrap">
+    <div class="filters" id="filters" role="group" aria-label="Highlight stories"></div>
+    <div class="field" id="field"></div>
+    <div class="legend" id="legend"></div>
+  </div>
+</section>
+
+<section class="slide" id="s-head" data-label="What changed">
+  <h2>What changed in scope</h2>
+  <p class="lede" id="headlede"></p>
+  <div id="heads" style="margin-top:30px"></div>
+  <div id="actions"></div>
+</section>
+
+<section class="slide" id="s-gate" data-label="Sign-off gate">
+  <h2>The sign-off gate</h2>
+  <p class="lede" id="gatelede"></p>
+  <div class="gate-grid" id="gategrid"></div>
+</section>
+
+<section class="slide" id="s-ledger" data-label="Ledger">
+  <h2>Change ledger</h2>
+  <p class="lede">Every story with a change signal, ranked by severity. Select a row for the change summary and evidence.</p>
+  <div class="tools"><input class="search" id="q" type="search" placeholder="Search key, title, capability, epic, label or change" aria-label="Search stories"><div class="filters" id="lfilters" style="margin:0"></div></div>
+  <div class="tablewrap"><table id="tbl"><thead><tr>
+    <th data-k="severity">Severity</th><th data-k="key">Story</th><th data-k="status">Status</th><th data-k="type">What happened</th><th>Flags</th></tr></thead><tbody></tbody></table></div>
+  <p class="sub" id="ledcount" style="margin-top:12px"></p>
+</section>
+
+<section class="slide" id="s-land" data-label="Where it lands">
+  <div class="two">
+    <div><h2>Where the change lands</h2><p class="lede" id="landlede"></p>
+      <div class="seg" role="group" aria-label="Group by"><button id="g-cap" aria-pressed="true">By capability</button><button id="g-epic" aria-pressed="false">By epic</button></div>
+      <div class="leg" id="landleg"></div><div class="bars" id="bars"></div></div>
+    <div><h2 style="font-size:30px">Story hygiene</h2><p class="lede" style="font-size:17px">Duplicate or unfinished titles among the stories in this window.</p><div id="hygiene" style="margin-top:18px"></div></div>
+  </div>
+</section>
+
+<section class="slide" id="s-move" data-label="Tempo & status">
+  <h2 id="movetitle">Tempo and status movement</h2>
+  <p class="lede" id="movelede"></p>
+  <div style="margin-top:26px">
+    <h3 style="margin:0 0 2px;font-size:20px;letter-spacing:-.02em;font-weight:620">Daily activity</h3>
+    <div class="sub">One column per day. Bars count comments; the rows underneath count new stories, status moves and scope-change comments.</div>
+    <div class="leg" id="templeg"></div>
+    <div class="tgrid" id="tempo"></div>
+  </div>
+  <div style="margin-top:44px">
+    <h3 style="margin:0 0 2px;font-size:20px;letter-spacing:-.02em;font-weight:620">Stories whose status moved</h3>
+    <div class="sub" id="movesub"></div>
+    <div class="tablewrap" style="border:0"><table class="mv" id="moves"></table></div>
+  </div>
+</section>
+
+<section class="slide" id="s-mem" data-label="Memory">
+  <h2>What memory carried over</h2>
+  <p class="lede" id="memlede"></p>
+  <div class="gate-grid" id="memgrid"></div>
+</section>
+
+<section class="slide" id="s-method" data-label="Method">
+  <h2>How to read this report</h2>
+  <div class="gate-grid" id="method"></div>
+</section>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true" aria-label="Story detail"></aside>
+<div class="tip" id="tip"></div>
+
+<script id="data" type="application/json">/*__DATA__*/null</script>
+<script>
+"use strict";
+const D = JSON.parse(document.getElementById('data').textContent.replace(/^\/\*__DATA__\*\//,''));
+const R = D.stories, S = D.summary, M = D.meta, X = D.exec;
+const $ = (s,e=document)=>e.querySelector(s), $$=(s,e=document)=>[...e.querySelectorAll(s)];
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SEVN={None:0,Minor:1,Moderate:2,Major:3};
+const FL={POST_SIGNOFF_EDIT:'Edited after sign-off',POST_SIGNOFF_CHANGE:'Changed after sign-off',SIGNOFF_PRESSURE:'Change requested after sign-off',
+ CHANGED_THEN_SIGNED_OFF:'Changed, then signed off',REGRESSION_FROM_SIGNOFF:'Moved back from sign-off',POSSIBLE_REGRESSION:'Possible regression, verify',
+ REWORK_LOOP:'Rework loop',NEW_STORY:'New story',DESCOPED:'Descoped or deferred',STATUS_MOVED:'Status moved',CONDITIONAL_APPROVAL:'Conditional approval',
+ TRACEABILITY_GAP:'Traceability gap',DEFERRAL_SIGNAL:'Deferral signal',BULK_EDIT_NOISE:'Bulk edit',DATED_EDIT_IN_BODY:'Dated note in text',
+ METADATA_CHANGE:'Metadata changed',NEWLY_SIGNED_OFF:'Newly signed off',BLOCKED:'Blocked',FORWARD:'Forward move',DUPLICATE_TITLE:'Duplicate title',
+ INCOMPLETE_TITLE:'Incomplete title',REMOVED_FROM_SCOPE:'Removed from scope'};
+const GATEFLAGS=['POST_SIGNOFF_EDIT','POST_SIGNOFF_CHANGE','SIGNOFF_PRESSURE','REGRESSION_FROM_SIGNOFF'];
+const SHOWFLAGS=['POST_SIGNOFF_EDIT','POST_SIGNOFF_CHANGE','SIGNOFF_PRESSURE','CHANGED_THEN_SIGNED_OFF','REGRESSION_FROM_SIGNOFF','POSSIBLE_REGRESSION','REWORK_LOOP','DESCOPED','CONDITIONAL_APPROVAL','TRACEABILITY_GAP','DUPLICATE_TITLE','INCOMPLETE_TITLE','REMOVED_FROM_SCOPE'];
+const has=(r,fs)=>fs.some(f=>r.flags.includes(f));
+const toDate=s=>{const m=String(s||'').match(/(\d{4})-(\d{2})-(\d{2})/);return m?new Date(+m[1],+m[2]-1,+m[3]):null};   // local date: avoids the UTC off-by-one-day shift
+const fmtD=s=>{const d=toDate(s);return d?d.toLocaleDateString('en-US',{month:'short',day:'numeric'}):''};
+const dayKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const PALETTE=['#5B5BD6','#1A9E9E','#3F9B4B','#C2409B','#A2845E','#5F7A99','#8A63D2','#B5892E'];
+const CAPS=[...new Set(R.map(r=>r.capability).filter(Boolean))].sort();
+const capColor=c=>PALETTE[Math.max(0,CAPS.indexOf(c))%PALETTE.length];
+const lbls=r=>`<span class="lbls">${r.capability?`<span class="lbl" title="Capability" style="--c:${capColor(r.capability)}"><i></i>${esc(r.capability)}</span>`:''}${r.epic?`<span class="lbl epic" title="Epic">${esc(r.epic)}</span>`:''}</span>`;
+const jl=r=>(r.labels||[]).map(l=>String(l).replace(/[\u200b\u200c\u200d\ufeff]/g,'').trim()).filter(Boolean);
+let CAP='';
+const clean=t=>String(t||'').replace(/\[~accountid:[^\]]+\]/g,'@user').replace(/\[([^\]|]+)\|[^\]]+\]/g,'$1').replace(/\{[^}]+\}/g,'').replace(/[*_]/g,'');
+const byKey=Object.fromEntries(R.map(r=>[r.key,r]));
+const jira=k=>M.jira_base?`${M.jira_base}/browse/${k}`:'#';
+const sevColor=s=>`var(--${s.toLowerCase()})`;
+
+/* ---------- header + verdict ---------- */
+$('#ttl').textContent=D.title||'Scope Change Report';
+$('#win').textContent=`${fmtD(M.baseline_at)} to ${fmtD(M.current_at)} · ${M.mode==='audit'?'Mostly inferred from comments & timestamps':'History replayed from memory'}`;
+document.title=`${D.title} · ${M.current}`;
+const nMaj=S.severity.Major||0, nMod=S.severity.Moderate||0;
+const auto={verdict:`${S.n_changed} of ${S.total} stories show scope movement; ${nMaj} are major.`,
+  subverdict:`${S.n_new} new stories, ${S.n_signoff_breach} changed after sign-off, ${S.n_regression} regression candidates.`};
+$('#verdict').textContent=((X&&X.verdict)||auto.verdict).replace(/-/g,'\u2011');
+$('#subverdict').textContent=(X&&X.subverdict)||auto.subverdict;
+const facts=[[S.n_baseline,'stories at baseline'],['+'+S.n_new,'new since baseline'],[nMaj,'major changes'],[S.n_signoff_breach,'changed after sign-off'],[S.n_signoff_pressure||0,'change requests on signed-off work']];
+$('#facts').innerHTML=facts.map(([n,l])=>`<div class="fact"><b>${esc(n)}</b><span>${esc(l)}</span></div>`).join('');
+
+/* ---------- story field ---------- */
+let FILTER='all';
+const order=S.workflow_order, sideOrder=['Blocked','Deferred','Cancelled'];
+const cols=[...order,...sideOrder,'(removed from export)'].map(n=>({name:n,items:R.filter(r=>r.status.toLowerCase().replace(/[\s_-]/g,'')===n.toLowerCase().replace(/[\s_-]/g,''))})).filter(c=>c.items.length||c.name==='ToDo');
+function matches(r,f){
+  if(CAP&&r.capability!==CAP)return false;
+  if(f==='all')return true;
+  if(f==='new')return r.movement==='new';
+  if(f==='gate')return has(r,GATEFLAGS)||has(r,['POSSIBLE_REGRESSION','REGRESSION_FROM_SIGNOFF']);
+  return r.severity===f;
+}
+function renderField(){
+  const f=$('#field');
+  f.innerHTML=cols.map(c=>{
+    const items=[...c.items].sort((a,b)=>SEVN[b.severity]-SEVN[a.severity]||a.key.localeCompare(b.key));
+    return `<div class="col${c.name==='ToDo'?' gate':''}"><h3>${esc(c.name)}</h3><div class="n">${c.items.length}</div><div class="dots">${items.map((r,i)=>
+      `<button class="dot ${r.severity}${r.movement==='new'?' new':''}${has(r,GATEFLAGS)?' ring':''}${r.reviewed?'':' unrev'}${matches(r,FILTER)?'':' dim'}" data-k="${r.key}" style="animation-delay:${Math.min(i*12+Math.random()*180,700)|0}ms" aria-label="${esc(r.key+': '+r.summary)}"></button>`).join('')}</div></div>`}).join('');
+}
+function renderFilters(){
+  const defs=[['all','All stories'],['Major','Major'],['Moderate','Moderate'],['Minor','Minor'],['new','New stories'],['gate','Sign-off flags']];
+  const cnt=k=>R.filter(r=>matches(r,k)).length;
+  const html=defs.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${FILTER===k}">${['Major','Moderate','Minor'].includes(k)?`<i style="background:${sevColor(k)}"></i>`:''}${l} <span style="opacity:.6">${cnt(k)}</span></button>`).join('');
+  const sel=`<select class="capsel" aria-label="Filter by capability"><option value="">All capabilities</option>${CAPS.map(c=>`<option value="${esc(c)}"${CAP===c?' selected':''}>${esc(c)} (${R.filter(r=>r.capability===c).length})</option>`).join('')}</select>`;
+  $('#filters').innerHTML=html+sel; $('#lfilters').innerHTML=html+sel;
+}
+function setFilter(k){FILTER=FILTER===k&&k!=='all'?'all':k;renderFilters();renderField();renderLedger();}
+document.addEventListener('change',e=>{if(e.target.matches('.capsel')){CAP=e.target.value;renderFilters();renderField();renderLedger();}});
+document.addEventListener('click',e=>{const c=e.target.closest('[data-f]');if(c)setFilter(c.dataset.f);const d=e.target.closest('[data-k]');if(d)openDrawer(d.dataset.k);});
+$('#legend').innerHTML=`<span><i class="dot Major"></i>Major</span><span><i class="dot Moderate"></i>Moderate</span><span><i class="dot Minor"></i>Minor</span><span><i class="dot None"></i>No change signal</span><span><i class="dot new" style="background:var(--ink)"></i>New story</span><span><i class="dot ring Major"></i>Sign-off flag</span><span><i class="dot None unrev" style="width:10px;height:10px"></i>Auto-rated, not reviewed</span>`;
+const tip=$('#tip');
+document.addEventListener('mousemove',e=>{
+  const d=e.target.closest&&e.target.closest('.dot[data-k]');
+  if(!d){tip.style.opacity=0;return}
+  const r=byKey[d.dataset.k];
+  tip.innerHTML=`<b>${esc(r.key)} · ${esc(r.status)}</b><span style="opacity:.75">${esc(r.capability||'')}${r.epic?' · '+esc(r.epic):''}</span><br>${esc(r.summary.slice(0,90))}${r.narrative&&r.narrative.headline?`<br><span style="opacity:.75">${esc(r.narrative.headline.slice(0,120))}</span>`:''}`;
+  tip.style.opacity=1;tip.style.left=Math.min(e.clientX+16,innerWidth-340)+'px';tip.style.top=(e.clientY+18)+'px';
+});
+
+/* ---------- headlines ---------- */
+function keyChips(keys){return `<div class="keys">${(keys||[]).filter(k=>byKey[k]).map(k=>`<button class="key" data-k="${k}" title="${esc((byKey[k].capability||'')+' · '+byKey[k].summary)}">${k}</button>`).join('')}</div>`}
+const heads=(X&&X.headlines)||[
+  {title:`${S.n_new} stories were added`,body:'New stories created since the baseline, each one a scope addition.',keys:R.filter(r=>r.movement==='new').map(r=>r.key).slice(0,24)},
+  {title:`${nMaj} stories changed materially`,body:'Highest-severity changes in the window.',keys:R.filter(r=>r.severity==='Major').map(r=>r.key)}];
+$('#headlede').textContent=(X&&X.headlede)||`Evidence window: ${fmtD(M.baseline_at)} to ${fmtD(M.current_at)}.`;
+$('#heads').innerHTML=heads.map(h=>`<div class="hl"><h3>${esc(h.title)}</h3><div><p>${esc(h.body)}</p>${keyChips(h.keys)}</div></div>`).join('');
+
+if(X&&X.unverified_figures&&X.unverified_figures.length)$('#heads').insertAdjacentHTML('beforeend',`<div class="note"><b>Check these figures.</b> The generated text mentions ${X.unverified_figures.map(esc).join(', ')}, which could not be traced to the analysis.</div>`);
+if(X&&X.actions&&X.actions.length)$('#actions').innerHTML=`<h3 style="margin:34px 0 4px;font-size:22px;letter-spacing:-.02em">Decisions to take</h3>`+X.actions.map(a=>`<div class="hl" style="padding:16px 0"><div><b>${esc(a.who)}</b></div><div><p style="margin:0 0 8px;color:var(--ink)">${esc(a.what)}</p>${keyChips(a.keys)}</div></div>`).join('');
+/* ---------- sign-off gate ---------- */
+const groups=[
+ ['Changed after sign-off','Text or scope changed on a story already at or past ToDo. This is the one to escalate.',r=>has(r,['POST_SIGNOFF_EDIT','POST_SIGNOFF_CHANGE'])],
+ ['Change requested after sign-off','Reviewers want changes on signed-off work; nothing edited yet. Expect a delta story or an AC edit.',r=>r.flags.includes('SIGNOFF_PRESSURE')],
+ ['Changed, then signed off','Scope moved first, then the story passed the gate. Confirm the frozen text includes the changes.',r=>r.flags.includes('CHANGED_THEN_SIGNED_OFF')],
+ ['Moved back or bounced','Backward moves from ToDo or later, or signs of regression to verify in Jira history.',r=>has(r,['REGRESSION_FROM_SIGNOFF','POSSIBLE_REGRESSION','REWORK_LOOP'])]];
+$('#gatelede').textContent=`${S.n_past_gate} of ${S.total} stories sit at or beyond ToDo, the business sign-off gate. ${M.mode==='audit'?'Without a baseline snapshot the gate is checked against current status and comments.':'Edits are checked against the text frozen when each story first reached ToDo.'}`;
+$('#gategrid').innerHTML=groups.map(([t,w,fn])=>{
+  const it=R.filter(fn);
+  return `<div class="grp"><h3>${t}<em>${it.length}</em></h3><p class="why">${w}</p>${it.length?it.map(r=>`<button class="row" data-k="${r.key}"><span class="k">${r.key}</span><span class="t">${esc(r.narrative&&r.narrative.headline||r.summary)}<span class="meta"><span class="stat" title="Current status">${esc(r.status)}</span>${lbls(r)}</span></span></button>`).join(''):'<div class="empty">None found in this window.</div>'}</div>`}).join('');
+
+/* ---------- ledger ---------- */
+let SORT={k:'severity',dir:-1};
+function renderLedger(){
+  const q=$('#q').value.trim().toLowerCase();
+  let rows=R.filter(r=>(r.severity!=='None'||r.movement!=='same'||has(r,SHOWFLAGS))&&matches(r,FILTER));
+  if(q)rows=rows.filter(r=>[r.key,r.summary,r.epic,r.capability,jl(r).join(' '),r.status,r.narrative&&r.narrative.headline,r.narrative&&r.narrative.change_type].join(' ').toLowerCase().includes(q));
+  const val={severity:r=>SEVN[r.severity],key:r=>r.key,status:r=>r.stage??99,type:r=>(r.narrative&&r.narrative.change_type)||''}[SORT.k];
+  rows.sort((a,b)=>{const x=val(a),y=val(b);return (x>y?1:x<y?-1:0)*SORT.dir||a.key.localeCompare(b.key)});
+  $('#tbl tbody').innerHTML=rows.map(r=>`<tr class="r" tabindex="0" data-k="${r.key}"><td><span class="sevdot" style="background:${r.severity==='None'?'var(--none)':sevColor(r.severity)}"></span>${r.severity}</td>
+   <td class="s"><b>${esc(r.summary)}</b><span>${r.key}</span><div class="meta" style="margin-top:4px">${lbls(r)}</div></td><td>${esc(r.status)}</td>
+   <td>${esc(r.narrative?r.narrative.change_type:'')}<br><span class="sub">${esc(r.narrative&&r.narrative.headline?r.narrative.headline.slice(0,130):'')}</span></td>
+   <td>${r.flags.filter(f=>SHOWFLAGS.includes(f)||f==='NEW_STORY').slice(0,3).map(f=>`<span class="tag ${GATEFLAGS.includes(f)?'gate':f==='POSSIBLE_REGRESSION'?'warn':''}">${FL[f]}</span>`).join(' ')}</td></tr>`).join('');
+  $('#ledcount').textContent=`${rows.length} stories shown`;
+}
+$('#q').addEventListener('input',renderLedger);
+$$('#tbl th[data-k]').forEach(th=>th.addEventListener('click',()=>{SORT=SORT.k===th.dataset.k?{k:SORT.k,dir:-SORT.dir}:{k:th.dataset.k,dir:th.dataset.k==='severity'?-1:1};renderLedger()}));
+$('#tbl').addEventListener('keydown',e=>{if(e.key==='Enter'){const t=e.target.closest('tr[data-k]');if(t)openDrawer(t.dataset.k)}});
+
+/* ---------- where it lands ---------- */
+let LAND='capability';
+function groupStats(fn){const g={};R.forEach(r=>{const k=fn(r);const o=g[k]??(g[k]={Major:0,Moderate:0,Minor:0,n:0,total:0,newN:0});o.total++;if(r.severity!=='None'){o[r.severity]++;o.n++}if(r.movement==='new')o.newN++});return g}
+function renderLand(){
+  const byCap=LAND==='capability';
+  const g=groupStats(byCap?r=>r.capability||'(no capability)':r=>r.epic||'(no epic)');
+  const w=o=>o.Major*100+o.Moderate*10+o.Minor;
+  const arr=Object.entries(g).filter(([,o])=>o.n||o.newN).sort((a,b)=>w(b[1])-w(a[1])||b[1].n-a[1].n).slice(0,12);
+  const maxN=Math.max(1,...arr.map(([,o])=>o.n));
+  const unit=byCap?'capability':'epic';
+  if(arr.length){
+    const heavy=arr[0],most=[...arr].sort((a,b)=>b[1].n-a[1].n)[0];
+    $('#landlede').textContent=`${heavy[0]} has the heaviest change (${heavy[1].Major} major, ${heavy[1].n} of ${heavy[1].total} stories touched).`+(most[0]!==heavy[0]?` ${most[0]} has the most stories touched (${most[1].n} of ${most[1].total}).`:'');
+  }else $('#landlede').textContent=`No ${unit} shows movement.`;
+  $('#landleg').innerHTML=['Major','Moderate','Minor'].map(s=>`<span><i style="background:${sevColor(s)}"></i>${s}</span>`).join('')+`<span style="flex-basis:100%">Bar length = stories with a change signal. Colour = severity. Ranked by severity-weighted change. New stories are counted separately at the right.</span>`;
+  $('#bars').innerHTML=arr.map(([e,o])=>`<div class="brow"><span class="lab" title="${esc(e)}">${byCap&&CAPS.includes(e)?`<span class="lbl" style="--c:${capColor(e)};border:0;padding:0"><i></i>${esc(e)}</span>`:esc(e)}</span><div class="track" style="width:${o.n/maxN*100}%;min-width:${o.n?14:0}px">${['Major','Moderate','Minor'].map(s=>o[s]?`<i style="flex:${o[s]};background:${sevColor(s)}" title="${o[s]} ${s}"></i>`:'').join('')}</div><span class="sub">${o.n} of ${o.total}${o.newN?` · +${o.newN} new`:''}</span></div>`).join('');
+  $('#g-cap').setAttribute('aria-pressed',byCap);$('#g-epic').setAttribute('aria-pressed',!byCap);
+}
+$('#g-cap').addEventListener('click',()=>{LAND='capability';renderLand()});
+$('#g-epic').addEventListener('click',()=>{LAND='epic';renderLand()});
+renderLand();
+const hy=R.filter(r=>has(r,['DUPLICATE_TITLE','INCOMPLETE_TITLE']));
+$('#hygiene').innerHTML=hy.length?hy.map(r=>`<button class="row" data-k="${r.key}"><span class="k">${r.key}</span><span class="t">${esc(r.summary)}<span class="meta"><span class="stat">${r.flags.filter(f=>['DUPLICATE_TITLE','INCOMPLETE_TITLE'].includes(f)).map(f=>FL[f]).join(' · ')}</span>${lbls(r)}</span></span></button>`).join(''):'<div class="empty">No duplicate or unfinished titles.</div>';
+
+/* ---------- tempo + movement ---------- */
+const SIGT=['scope_add','scope_remove','rework','split_merge','conditional_approval','change_request','deferral','traceability_gap'];
+const d0=toDate(M.baseline_at),d1=toDate(M.current_at),dayList=[];
+if(d0&&d1)for(let d=new Date(d0);d<=d1;d.setDate(d.getDate()+1))dayList.push(dayKey(d));
+const A=Object.fromEntries(dayList.map(k=>[k,{sig:0,oth:0,newS:0,mov:0}]));
+R.forEach(r=>{
+  (r.evidence.comments||[]).forEach(c=>{const o=A[c.ts.slice(0,10)];if(!o)return;(c.tags||[]).some(t=>SIGT.includes(t))?o.sig++:o.oth++});
+  if(r.movement==='new'&&r.created){const o=A[r.created.slice(0,10)];if(o)o.newS++}
+  if(r.status_path&&r.status_path.length){r.status_path.forEach(p=>{const o=A[String(p.ts).slice(0,10)];if(o)o.mov++})}   // exact transition dates from memory
+  else if(r.movement==='moved'&&r.status_cat_changed){const o=A[r.status_cat_changed.slice(0,10)];if(o)o.mov++}
+});
+const mx=Math.max(1,...dayList.map(k=>A[k].sig+A[k].oth));
+const n=dayList.length;
+const cellRow=(label,tip,f)=>`<div class="rl row2" title="${esc(tip)}"><span>${label}</span></div>`+dayList.map(k=>{const v=f(A[k]);return `<div class="cell ${v?'hot':'z'}">${v||'–'}</div>`}).join('');
+$('#tempo').style.gridTemplateColumns=`118px repeat(${n},minmax(0,1fr))`;
+$('#tempo').innerHTML=
+  `<div class="yl"><em>Comments per day</em><span style="top:0">${mx}</span><span style="bottom:2px">0</span></div>`+
+  dayList.map(k=>{const o=A[k],tot=o.sig+o.oth;return `<div class="bar2" title="${k}: ${o.sig} scope-change, ${o.oth} other"><b>${tot||''}</b><i style="height:${o.sig?Math.max(3,o.sig/mx*150):0}px;background:var(--moderate)"></i><i style="height:${o.oth?Math.max(3,o.oth/mx*150):0}px;background:var(--none)"></i></div>`}).join('')+
+  `<div class="rl" style="padding-top:6px">Day</div>`+dayList.map(k=>{const d=toDate(k);return `<div class="dl"><b>${d.toLocaleDateString('en-US',{weekday:'short'})}</b>${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>`}).join('')+
+  cellRow('New stories','Stories created on this day',o=>o.newS)+
+  cellRow('Status moves','Status transitions on this day (exact where memory holds a changelog; otherwise the day the status category last changed)',o=>o.mov)+
+  cellRow('Scope-change comments','Comments mentioning additions, removals, rework, deferral, conditional approval or requirement gaps',o=>o.sig);
+$('#templeg').innerHTML=`<span><i style="background:var(--moderate)"></i>Comments with scope-change language</span><span><i style="background:var(--none)"></i>Other comments (approvals, questions, status notes)</span>`;
+
+const moved=R.filter(r=>r.movement==='moved'||r.movement==='removed').sort((a,b)=>(b.status_cat_changed||'').localeCompare(a.status_cat_changed||''));
+const storyCell=r=>`<b style="font-weight:560">${esc(r.summary)}</b><br><span class="sub">${r.key}</span>`;
+const flagCell=r=>r.flags.filter(f=>['REGRESSION_FROM_SIGNOFF','POSSIBLE_REGRESSION','REWORK_LOOP','NEWLY_SIGNED_OFF','FORWARD','DESCOPED','POST_SIGNOFF_EDIT','POST_SIGNOFF_CHANGE','REMOVED_FROM_SCOPE'].includes(f)).map(f=>`<span class="tag ${GATEFLAGS.includes(f)?'gate':f==='POSSIBLE_REGRESSION'?'warn':''}">${FL[f]}</span>`).join(' ');
+if(M.mode==='snapshot'){
+  $('#movelede').textContent=`${moved.length} stories changed status since the baseline.`;
+  $('#movesub').textContent='From is the status at the start of the window and To the status at its end, replayed from memory. Per-story evidence quality is shown in the detail panel.';
+  $('#moves').innerHTML=`<thead><tr><th>Story</th><th>Capability and epic</th><th>From</th><th>To</th><th>Flag</th></tr></thead><tbody>`+(moved.map(r=>`<tr class="r" tabindex="0" data-k="${r.key}"><td>${storyCell(r)}</td><td>${lbls(r)}</td><td>${esc(r.baseline_status||'?')}</td><td><b style="font-weight:560">${esc(r.status)}</b></td><td>${flagCell(r)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No status changes.</td></tr>')+'</tbody>';
+}else{
+  $('#movelede').textContent=`${moved.length} stories crossed a status category (To Do, In Progress, Done) since ${fmtD(M.baseline_at)}.`;
+  $('#movesub').textContent='Jira exports record only the last category change, so the previous status is unknown. “Entered” is the category the story moved into, on that date. Direction is not shown; flagged rows need checking in Jira history.';
+  $('#moves').innerHTML=`<thead><tr><th>Story</th><th>Capability and epic</th><th>Now at</th><th>Entered category</th><th>On</th><th>Flag</th></tr></thead><tbody>`+moved.map(r=>`<tr class="r" tabindex="0" data-k="${r.key}"><td>${storyCell(r)}</td><td>${lbls(r)}</td><td><b style="font-weight:560">${esc(r.status)}</b></td><td>${esc(r.status_cat)}</td><td style="white-space:nowrap">${fmtD(r.status_cat_changed)}</td><td>${flagCell(r)}</td></tr>`).join('')+'</tbody>';
+}
+$('#moves').addEventListener('keydown',e=>{if(e.key==='Enter'){const x=e.target.closest('tr[data-k]');if(x)openDrawer(x.dataset.k)}});
+
+/* ---------- memory ---------- */
+const MEM=D.memory||{};
+(function(){
+  const open=MEM.open||[],res=MEM.resolved||[],cov=MEM.coverage||{},llm=MEM.llm||{};
+  const nOpen=open.length,nRes=res.length;
+  $('#memlede').textContent=MEM.prev?`${nOpen} decision${nOpen===1?'':'s'} from earlier reports ${nOpen===1?'is':'are'} still open and ${nRes} ${nRes===1?'was':'were'} resolved by this window's evidence. Memory has ${MEM.runs||1} runs on record.`:`This is the first report on record, so there are no earlier decisions to carry over. Decisions raised here will be tracked in the next report.`;
+  const act=a=>`<div class="row" style="cursor:default"><span class="k">#${esc(a.id)}</span><span class="t">${esc(a.what)}<span class="meta"><span class="stat">${esc(a.who)}</span>${a.note?` · ${esc(a.note)}`:''}</span>${keyChips(a.keys)}</span></div>`;
+  const cv=[['Exact',cov.Exact||0,'a Jira changelog covers the whole window'],['Observed',cov.Observed||0,'seen in two snapshots; the change time is bounded by the run times'],['Inferred',cov.Inferred||0,'older than memory; comments and timestamps only']];
+  $('#memgrid').innerHTML=
+   `<div class="grp"><h3>Evidence quality<em>${cv.reduce((a,x)=>a+x[1],0)} stories</em></h3><p class="why">How sure the report is, story by story.</p>${cv.map(([n,c,w])=>`<div class="row" style="cursor:default"><span class="k">${c}</span><span class="t">${n}<span class="meta"><span class="stat">${w}</span></span></span></div>`).join('')}</div>`+
+   `<div class="grp"><h3>Still open from earlier reports<em>${nOpen}</em></h3><p class="why">Decisions raised before and not yet evidenced as done.</p>${nOpen?open.map(act).join(''):'<div class="empty">None carried over.</div>'}</div>`+
+   `<div class="grp"><h3>Resolved since the last report<em>${nRes}</em></h3><p class="why">Closed because later changes in Jira show the decision was acted on or overtaken.</p>${nRes?res.map(act).join(''):'<div class="empty">Nothing resolved in this window.</div>'}</div>`+
+   `<div class="grp"><h3>This run</h3><p class="why">${esc(MEM.ingest&&MEM.ingest.events_added!=null?MEM.ingest.events_added+' new events recorded. ':'')}${llm.judged!=null?`Claude judged ${llm.judged} stories, ${llm.cached||0} reused from memory unchanged${llm.fallback?`, ${llm.fallback} written deterministically`:''}.`:'Deterministic narratives only (no LLM).'}</p></div>`;
+})();
+const history=r=>{
+  const h=r.history||[];
+  if(!h.length&&!r.confidence)return'';
+  const conf={Exact:'Jira changelog',Observed:'compared between snapshots (time-bounded)',Inferred:'inferred from comments and timestamps'}[r.confidence]||'';
+  return `<h4>History in the window (${h.length})</h4><div class="sub" style="margin-bottom:6px">Evidence: <b>${esc(r.confidence||'')}</b>${conf?` · ${conf}`:''}</div>`+h.map(e=>`<div class="cm"><div class="h"><span>${esc(e.ts)}</span><span class="tag">${esc(e.confidence)}</span></div><div>${esc(e.detail)}</div></div>`).join('');
+};
+
+/* ---------- method ---------- */
+const audit=M.mode==='audit';
+$('#method').innerHTML=`<div class="grp"><h3>Evidence</h3><p class="why">${audit?'Most stories predate the memory, so changes are inferred from comment timestamps, status-category dates, new stories and notes authors left in comments. Before/after text appears only where memory has history. Confidence is marked per story.':'History is replayed from the memory ledger: Summary, Description and Acceptance Criteria are compared at the start and end of the window, and sign-off is checked against the text as it stood when each story reached ToDo. Evidence quality per story: Exact (Jira changelog), Observed (between two snapshots, time-bounded), Inferred (older than memory: comments and timestamps only).'}</p></div>
+<div class="grp"><h3>Severity</h3><p class="why">Minor: wording or formatting. Moderate: acceptance criteria added or removed, or content added to the description. Major: 30% or more rewritten, objective or persona changed, three or more criteria added or removed, or scope moved out. Stories marked with a dashed ring were auto-rated and not yet reviewed.</p></div>
+<div class="grp"><h3>Sign-off rule</h3><p class="why">ToDo is the business sign-off gate. Any edit to Summary, Description or Acceptance Criteria at or after ToDo is flagged. Any move from ToDo or later back to an earlier status is flagged as a regression.</p></div>
+<div class="grp"><h3>Next run</h3><p class="why">Memory holds ${esc(MEM.events_total||0)} events across ${esc(MEM.runs||1)} runs. Next time, ingest only the new Jira dump. Nothing needs to be kept or re-uploaded, and any window can be re-analysed from memory.</p></div>`;
+
+/* ---------- drawer ---------- */
+const dr=$('#drawer'),sc=$('#scrim');let lastFocus=null;
+function diffBlock(d,label){
+  if(!d)return'';
+  const a=(d.added||[]).map(t=>`<p class="a">+ ${esc(t)}</p>`).join(''),x=(d.removed||[]).map(t=>`<p class="d">${esc(t)}</p>`).join('');
+  const m=(d.modified||[]).map(t=>`<p class="m"><span class="d" style="display:block;background:none">${esc(t.before)}</span><span class="a" style="display:block;background:none">${esc(t.after)}</span></p>`).join('');
+  return `<dt>${label}</dt><dd class="diff">${a}${x}${m}${d.change_pct!=null?`<span class="sub">${d.change_pct}% of the text changed</span>`:''}</dd>`;
+}
+function acBlock(d){
+  if(!d)return'';
+  let h='';
+  (d.added||[]).forEach(k=>h+=`<p class="a">+ ${esc(k)} added: ${esc((d.added_text&&d.added_text[k]||'').slice(0,320))}</p>`);
+  (d.removed||[]).forEach(k=>h+=`<p class="d">${esc(k)} removed: ${esc((d.removed_text&&d.removed_text[k]||'').slice(0,320))}</p>`);
+  (d.edited||[]).forEach(e=>{h+=`<p class="m"><b>${esc(e.ac)}</b> edited · ${e.change_pct}%</p>`;(e.diff.added||[]).forEach(t=>h+=`<p class="a">+ ${esc(t)}</p>`);(e.diff.removed||[]).forEach(t=>h+=`<p class="d">${esc(t)}</p>`)});
+  return h?`<dt>AC diff</dt><dd class="diff">${h}</dd>`:'';
+}
+function timeline(r){
+  const a=new Date(M.baseline_at.replace(' ','T')).getTime(),b=new Date(M.current_at.replace(' ','T')).getTime();if(!(b>a))return'';
+  const pos=t=>Math.max(0,Math.min(100,(new Date(t.replace(' ','T')).getTime()-a)/(b-a)*100));
+  let h='';
+  (r.evidence.comments||[]).forEach(c=>h+=`<i class="c" style="left:${pos(c.ts)}%" title="Comment ${c.ts}"></i>`);
+  if(r.status_cat_changed&&r.status_cat_changed>=M.baseline_at)h+=`<i class="s" style="left:${pos(r.status_cat_changed)}%" title="Status category ${r.status_cat_changed}"></i>`;
+  if(r.updated)h+=`<i class="u" style="left:${pos(r.updated)}%" title="Last updated ${r.updated}"></i>`;
+  return `<h4>Timeline</h4><div class="line">${h}<span style="left:0">${fmtD(M.baseline_at)}</span><span style="right:0">${fmtD(M.current_at)}</span></div><div class="sub"><span style="color:var(--moderate)">●</span> comment <span style="color:var(--major)">●</span> status category moved <span>●</span> last updated</div>`;
+}
+function openDrawer(k){
+  const r=byKey[k];if(!r)return;lastFocus=document.activeElement;
+  const n=r.narrative||{};
+  const rows=[];
+  const exact=r.evidence.desc_diff||r.evidence.ac_diff||r.evidence.summary_diff;
+  if(n.desc_change)rows.push(`<dt>Description</dt><dd>${esc(n.desc_change)}</dd>`);
+  if(n.ac_change)rows.push(`<dt>Acceptance criteria</dt><dd>${esc(n.ac_change)}</dd>`);
+  if(n.status_change)rows.push(`<dt>Status</dt><dd>${esc(n.status_change)}</dd>`);
+  else if(r.baseline_status&&r.baseline_status!==r.status)rows.push(`<dt>Status</dt><dd>${esc(r.baseline_status)} → <b>${esc(r.status)}</b></dd>`);
+  if(r.evidence.summary_diff)rows.push(`<dt>Title</dt><dd class="diff"><p class="d">${esc(r.evidence.summary_diff.before)}</p><p class="a">${esc(r.evidence.summary_diff.after)}</p></dd>`);
+  rows.push(diffBlock(r.evidence.desc_diff,'Description diff'));rows.push(acBlock(r.evidence.ac_diff));
+  (r.evidence.metadata||[]).forEach(m=>rows.push(`<dt>${esc(m.field)}</dt><dd>${esc(m.before||'—')} → ${esc(m.after||'—')}</dd>`));
+  if(n.pm_note)rows.push(`<dt>PM take</dt><dd>${esc(n.pm_note)}</dd>`);
+  const cms=(r.evidence.comments||[]).map((c,i)=>{const t=clean(c.text);return `<div class="cm" id="cm${i}"><div class="h"><span>${c.ts}</span><span>user ${esc((c.author||'').slice(-6))}</span>${(c.tags||[]).map(t=>`<span class="tag">${esc(t.replace(/_/g,' '))}</span>`).join('')}</div><div class="body">${esc(t)}</div>${t.length>360?`<button class="more" data-more="cm${i}">Show all</button>`:''}</div>`}).join('');
+  dr.innerHTML=`<button class="x" aria-label="Close" id="dx">×</button>
+   <div class="keyline"><a href="${jira(r.key)}" target="_blank" rel="noopener">${r.key}</a><span class="stat">${esc(r.status)}</span></div><div class="meta" style="margin-top:8px">${lbls(r)}</div>
+   <h2>${esc(r.summary)}</h2>
+   <div class="keys" style="margin:6px 0 4px"><span class="tag sev-${r.severity}">${r.severity==='None'?'No scope change':r.severity}</span>${n.change_type?`<span class="tag">${esc(n.change_type)}</span>`:''}${r.flags.filter(f=>FL[f]&&f!=='STATUS_MOVED'&&f!=='BULK_EDIT_NOISE').slice(0,5).map(f=>`<span class="tag ${GATEFLAGS.includes(f)?'gate':f==='POSSIBLE_REGRESSION'?'warn':''}">${FL[f]}</span>`).join('')}<span class="tag">${esc(r.confidence)} evidence${n.confidence?` · ${esc(n.confidence)} confidence`:''}</span></div>
+   ${n.headline?`<p style="font-size:19px;line-height:1.35;margin:16px 0 0;letter-spacing:-.01em">${esc(n.headline)}</p>`:''}
+   <h4>What changed</h4><dl style="margin:0">${rows.filter(Boolean).map(x=>x.startsWith('<dt>')?`<div class="chg">${x}</div>`:x).join('')||'<div class="chg"><dd style="grid-column:1/-1">No text or status change evidenced.</dd></div>'}</dl>
+   ${r.severity_reasons&&r.severity_reasons.length?`<h4>Why it was flagged</h4><div class="sub">${r.severity_reasons.map(esc).join('<br>')}</div>`:''}
+   ${jl(r).length?`<h4>Jira labels</h4><div class="keys">${jl(r).map(l=>`<span class="tag">${esc(l)}</span>`).join('')}</div>`:''}
+   ${timeline(r)}
+   ${history(r)}
+   ${cms?`<h4>Comments in the window (${(r.evidence.comments||[]).length})</h4>${cms}`:''}`;
+  tip.style.opacity=0;dr.classList.add('on');sc.classList.add('on');dr.setAttribute('aria-hidden','false');dr.scrollTop=0;$('#dx').focus();
+}
+function closeDrawer(){dr.classList.remove('on');sc.classList.remove('on');dr.setAttribute('aria-hidden','true');if(lastFocus)lastFocus.focus()}
+dr.addEventListener('click',e=>{if(e.target.closest('#dx'))closeDrawer();const m=e.target.closest('[data-more]');if(m){const c=document.getElementById(m.dataset.more);c.classList.toggle('open');m.textContent=c.classList.contains('open')?'Show less':'Show all'}});
+sc.addEventListener('click',closeDrawer);
+
+/* ---------- nav, present, theme ---------- */
+const slides=$$('.slide');
+$('#nav').innerHTML=slides.map((s,i)=>`<button data-i="${i}" aria-label="${s.dataset.label}"><span>${s.dataset.label}</span></button>`).join('');
+$('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)slides[b.dataset.i].scrollIntoView()});
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){$$('#nav button').forEach((b,i)=>b.classList.toggle('on',slides[i]===e.target))}}),{threshold:.55});
+slides.forEach(s=>io.observe(s));
+const cur=()=>{let b=0,m=1e9;slides.forEach((s,i)=>{const d=Math.abs(s.getBoundingClientRect().top-56);if(d<m){m=d;b=i}});return b};
+document.addEventListener('keydown',e=>{
+  if(e.target.matches('input'))return;
+  if(e.key==='Escape')closeDrawer();
+  if(dr.classList.contains('on'))return;
+  if(['ArrowDown','PageDown','ArrowRight'].includes(e.key)){e.preventDefault();slides[Math.min(slides.length-1,cur()+1)].scrollIntoView()}
+  if(['ArrowUp','PageUp','ArrowLeft'].includes(e.key)){e.preventDefault();slides[Math.max(0,cur()-1)].scrollIntoView()}
+  if(e.key==='f'||e.key==='F')togglePresent();
+});
+function togglePresent(){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen()}
+$('#present').addEventListener('click',togglePresent);
+$('#theme').addEventListener('click',()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.theme=dark?'light':'dark'});
+
+renderFilters();renderField();renderLedger();
+setTimeout(()=>document.body.classList.remove('boot'),1400);
+</script>
+</body>
+</html>

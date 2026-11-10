@@ -1,0 +1,27 @@
+# ---- Client data: NEVER commit -------------------------------------------
+# Jira dumps, memory databases, dossiers, generated reports, local workspaces.
+sentinel_home/
+data/
+memory/
+reports/
+demo_data/
+*.sqlite
+*.sqlite3
+*.db
+*.snapshot.json
+*.csv
+*.jsonl
+*.ndjson
+*.zip
+Scope_Change_Report*.html
+analysis*.json
+.env
+.env.*
+
+# ---- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
